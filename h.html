@@ -20,16 +20,14 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        let divisions = 15;
+        let divisions = 16;
 
-        //color
-
-        let gridXZ = new THREE.GridHelper(25, divisions);
+        let gridXZ = new THREE.GridHelper(25, divisions, 0xff0000, 0xff0000);
         scene.add(gridXZ);
-        let gridXY = new THREE.GridHelper(25, divisions);
+        let gridXY = new THREE.GridHelper(25, divisions, 0x0000ff, 0x0000ff);
         gridXY.rotation.x = Math.PI / 2;
         scene.add(gridXY);
-        let gridYZ = new THREE.GridHelper(25, divisions);
+        let gridYZ = new THREE.GridHelper(25, divisions, 0x00ff00, 0x00ff00);
         gridYZ.rotation.z = Math.PI / 2;
         scene.add(gridYZ)
         
@@ -103,20 +101,20 @@
 
         window.addEventListener('keydown', (event) => {
             if (event.key === 'ArrowUp') {
-                divisions = Math.min(divisions + 5, 50);
+                divisions = Math.min(divisions + 4, 52);
             }
             if (event.key === 'ArrowDown') {
-                divisions = Math.max(divisions - 5, 5);
+                divisions = Math.max(divisions - 4, 4);
             }
             scene.remove(gridXZ);
-            gridXZ = new THREE.GridHelper(25, divisions);
+            gridXZ = new THREE.GridHelper(25, divisions, 0xff0000, 0xff0000);
             scene.add(gridXZ);
             scene.remove(gridXY);
-            gridXY = new THREE.GridHelper(25, divisions);
+            gridXY = new THREE.GridHelper(25, divisions, 0x0000ff, 0x0000ff);
             gridXY.rotation.x = Math.PI / 2;
             scene.add(gridXY);
             scene.remove(gridYZ);
-            gridYZ = new THREE.GridHelper(25, divisions);
+            gridYZ = new THREE.GridHelper(25, divisions, 0x00ff00, 0x00ff00);
             gridYZ.rotation.z = Math.PI / 2;
             scene.add(gridYZ);
             event.preventDefault();
