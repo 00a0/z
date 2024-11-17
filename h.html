@@ -4,11 +4,109 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3D Camera Control</title>
+    <style>
+        body {
+          font-family: Arial, sans-serif;
+          margin: 0;
+          padding: 0;
+          height: 100vh;
+          background-color: #f4f4f4;
+        }
+
+        .panel {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          background-color: #333;
+          color: white;
+          padding: 15px;
+          display: none;
+          z-index: 1000;
+          opacity: 0;
+          transition: opacity 0.3s ease-in-out;
+        }
+    
+        .panel.show {
+          display: block;
+          opacity: 1;
+        }
+    
+        .panel input[type="text"] {
+          width: 70%;
+          padding: 8px;
+          margin-right: 10px;
+          border: none;
+          border-radius: 4px;
+        }
+    
+        .panel button {
+          padding: 8px 15px;
+          background-color: #4CAF50;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: background-color 0.3s ease;
+        }
+    
+        .panel button:hover {
+          background-color: #45a049;
+        }
+    
+        .open-btn {
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background-color: #008CBA;
+          color: white;
+          border: none;
+          padding: 10px 20px;
+          border-radius: 4px;
+          font-size: 16px;
+          cursor: pointer;
+          z-index: 1001;
+          transition: background-color 0.3s ease, transform 0.3s ease;
+        }
+    
+        .open-btn:hover {
+          background-color: #007bb5;
+          transform: scale(1.1);
+        }
+    
+        .open-btn:active {
+          transform: scale(1); 
+        }
+    </style>
 </head>
 
 <body>
+    <button class="open-btn" onclick="togglePanel()">Открыть панель</button>
+
+    <div class="panel" id="equationPanel">
+    <input type="text" id="equationInput" placeholder="Введите уравнение">
+    <button onclick="submitEquation()">Отправить</button>
+    </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
+
+        function togglePanel() {
+            const panel = document.getElementById('equationPanel');
+            panel.classList.toggle('show');
+            }
+
+            function submitEquation() {
+            const equation = document.getElementById('equationInput').value;
+            if (equation) {
+                let input = document.getElementById('equationInput').value;
+                console.log(input);
+                calculateZ(input);
+            } else {
+                alert('Пожалуйста, введите уравнение.');
+            }
+        }
+
         const scene = new THREE.Scene();
 
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -102,9 +200,11 @@
         window.addEventListener('keydown', (event) => {
             if (event.key === 'ArrowUp') {
                 divisions = Math.min(divisions + 4, 52);
+                event.preventDefault();
             }
             if (event.key === 'ArrowDown') {
                 divisions = Math.max(divisions - 4, 4);
+                event.preventDefault();
             }
             scene.remove(gridXZ);
             gridXZ = new THREE.GridHelper(25, divisions, 0xff0000, 0xff0000);
@@ -117,7 +217,6 @@
             gridYZ = new THREE.GridHelper(25, divisions, 0x00ff00, 0x00ff00);
             gridYZ.rotation.z = Math.PI / 2;
             scene.add(gridYZ);
-            event.preventDefault();
         });
 
         window.addEventListener('resize', () => {
@@ -126,11 +225,119 @@
             camera.updateProjectionMatrix();
         });
 
+        function calculate(formula) {
+            function compute(x, y, formula) {
+                formula = formula.replace(/x/g, x).replace(/y/g, y);
+                formula = formula.replace(/sin\(([^)]+)\)/g, (_, value) => Math.sin(eval(value)));
+                formula = formula.replace(/cos\(([^)]+)\)/g, (_, value) => Math.cos(eval(value)));
+                formula = formula.replace(/tg\(([^)]+)\)/g, (_, value) => Math.tan(eval(value)));
+                formula = formula.replace(/ctg\(([^)]+)\)/g, (_, value) => 1 / Math.tan(eval(value)));
+                formula = formula.replace(/\^/g, '**');
+                return eval(formula);
+            }
+
+            for (let x = -25; x <= 25; x += 0.5) {
+                for (let y = -25; y <= 25; y += 0.5) {
+                    let result = compute(x, y, formula);
+                    console.log(`x: ${x}, y: ${y}, result: ${result}`);
+                }
+            }
+        }
+
+        function calculateZ(formula) {
+            function evaluateExpression(x, y, formula) {
+                formula = formula.replace(/x/g, x).replace(/y/g, y);
+                let numStack = [], opStack = [], i = 0;
+                while (i < formula.length) {
+                    let char = formula[i];
+                    if (char === ' ' || char === '\t') { i++; continue; }
+                    if (char === '(') { opStack.push(char); i++; }
+                    else if (char === ')') {
+                        while (opStack.length > 0 && opStack[opStack.length - 1] !== '(') {
+                            processOperator(numStack, opStack.pop());
+                        }
+                        opStack.pop(); i++;
+                    } else if (isDigit(char) || char === '-') {
+                        let num = '';
+                        if (char === '-') { num = '-'; i++; char = formula[i]; }
+                        while (isDigit(char) || char === '.') {
+                            num += char; i++; char = formula[i];
+                        }
+                        numStack.push(parseFloat(num));
+                    } else if (isAlpha(char)) {
+                        let func = '';
+                        while (isAlpha(char)) { func += char; i++; char = formula[i]; }
+                        if (['sin', 'cos', 'tg', 'ctg'].includes(func)) {
+                            i++; let param = '', startIdx = i;
+                            while (formula[i] !== ')') { param += formula[i]; i++; }
+                            let paramValue = evaluateExpression(x, y, param);
+                            let result = applyFunction(func, paramValue);
+                            numStack.push(result); i++;
+                        }
+                    } else if (['+', '-', '*', '/', '^'].includes(char)) {
+                        while (opStack.length > 0 && precedence(opStack[opStack.length - 1]) >= precedence(char)) {
+                            processOperator(numStack, opStack.pop());
+                        }
+                        opStack.push(char); i++;
+                    } else { i++; }
+                }
+                while (opStack.length > 0) { processOperator(numStack, opStack.pop()); }
+                return numStack[0];
+            }
+
+            function processOperator(numStack, operator) {
+                let b = numStack.pop(), a = numStack.pop(), result;
+                switch (operator) {
+                    case '+': result = a + b; break;
+                    case '-': result = a - b; break;
+                    case '*': result = a * b; break;
+                    case '/': result = b === 0 ? NaN : a / b; break;
+                    case '^': result = Math.pow(a, b); break;
+                }
+                numStack.push(result);
+            }
+
+            function applyFunction(func, value) {
+                switch (func) {
+                    case 'sin': return Math.sin(value);
+                    case 'cos': return Math.cos(value);
+                    case 'tg': return Math.tan(value);
+                    case 'ctg': return value === 0 ? Infinity : 1 / Math.tan(value);
+                    default: return NaN;
+                }
+            }
+
+            function precedence(operator) {
+                if (operator === '+' || operator === '-') { return 1; }
+                if (operator === '*' || operator === '/') { return 2; }
+                if (operator === '^') { return 3; }
+                return 0;
+            }
+
+            function isDigit(char) { return char >= '0' && char <= '9'; }
+            function isAlpha(char) { return (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z'); }
+
+            for (let x = -25; x <= 25; x += 0.5) {
+                for (let y = -25; y <= 25; y += 0.5) {
+                    let result = evaluateExpression(x, y, formula);
+                    if (!(isNaN(result))) {
+                        let dot = new THREE.Vector3(x, y, result);
+                        let material = new THREE.MeshBasicMaterial({color: 0xff0000})
+                        let geometry = new THREE.SphereGeometry(0.1, 16, 16);
+                        let sphere = new THREE.Mesh(geometry, material);
+                        sphere.position.set(dot.x, dot.y, dot.z);
+                        scene.add(sphere);
+                    }
+                }
+            }
+        }
+
+
         function animate() {
             requestAnimationFrame(animate);
             renderer.render(scene, camera);
         }
-
+        
         animate();
     </script>
 </body>
